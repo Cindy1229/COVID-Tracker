@@ -4,26 +4,27 @@ import { MenuItem, FormControl, Select, Card, CardContent } from '@material-ui/c
 import InfoBox from './InfoBox';
 import Map from './Map'
 import Table from './Table'
-import {sortData, showDataOnMap} from './util'
+import { sortData, prettyPrintStat } from './util'
 import LineGraph from './LineGraph'
 import 'leaflet/dist/leaflet.css'
 
 function App() {
   const [countries, setCountries] = useState(['USA', 'UK'])
   const [country, setCountry] = useState('worldwide')
-  const [countryInfo, setCountryInfo]=useState({})
-  const [tableData, setTableData]=useState([])
-  const [center, setCenter]=useState({lat: 34.80746, lng: -40.4796})
-  const [zoom, setZoom]=useState(3)
-  const [mapCountries, setMapCountries]=useState([])
+  const [countryInfo, setCountryInfo] = useState({})
+  const [tableData, setTableData] = useState([])
+  const [center, setCenter] = useState({ lat: 34.80746, lng: -40.4796 })
+  const [zoom, setZoom] = useState(3)
+  const [mapCountries, setMapCountries] = useState([])
+  const [casesType, setCasesType] = useState('cases')
 
-  useEffect(()=>{
+  useEffect(() => {
     //get data for infoboxes in first render
     fetch('https://disease.sh/v3/covid-19/all')
-    .then(response=>response.json())
-    .then(data=>{
-      setCountryInfo(data)
-    })
+      .then(response => response.json())
+      .then(data => {
+        setCountryInfo(data)
+      })
   }, [])
 
   useEffect(() => {
@@ -40,7 +41,7 @@ function App() {
           //set the countries in the dropdown
           setCountries(countries)
           // sort the country by cases number
-          const sortedData=sortData(data)
+          const sortedData = sortData(data)
           setTableData(sortedData)
 
           //set data for map circles
@@ -53,19 +54,25 @@ function App() {
   const onCountryChange = async (e) => {
     const countryCode = e.target.value
 
-    const url=countryCode==='worldwide' ? 'https://disease.sh/v3/covid-19/all' : `https://disease.sh/v3/covid-19/countries/${countryCode}`
+    const url = countryCode === 'worldwide' ? 'https://disease.sh/v3/covid-19/all' : `https://disease.sh/v3/covid-19/countries/${countryCode}`
 
     await fetch(url)
-    .then(response=>response.json())
-    .then(data=>{
-      //get the selected country data and provide data to info boxes
-      setCountry(countryCode)
-      setCountryInfo(data)
+      .then(response => response.json())
+      .then(data => {
+        //get the selected country data and provide data to info boxes
+        setCountry(countryCode)
+        setCountryInfo(data)
 
-      //set map center to the country selected
-      setCenter([data.countryInfo.lat, data.countryInfo.long])
-      setZoom(4)
-    })
+        //set map center to the country selected
+        if (countryCode === 'worldwide') {
+          setCenter({ lat: 34.80746, lng: -40.4796 })
+          setZoom(3)
+        } else {
+          setCenter([data.countryInfo.lat, data.countryInfo.long])
+          setZoom(4)
+        }
+
+      })
   }
 
   return (
@@ -73,7 +80,7 @@ function App() {
       <div className="app__left">
         {/* Header */}
         <div className="app__header">
-          <h1>COVID19-Tracker</h1>
+          <h1>Track the COVID-19...</h1>
           <FormControl className="app_dropdown">
             <Select variant="outlined" value={country} onChange={onCountryChange}>
               {/* Loop through all countries */}
@@ -90,11 +97,17 @@ function App() {
         {/* Info Boxes */}
         <div className="app__stats">
           {/* new cases*/}
-          <InfoBox title="Cases" total={countryInfo.cases} cases={countryInfo.todayCases} />
+          <InfoBox
+            isActive={casesType==='cases'}
+            title="Cases"
+            total={countryInfo.cases}
+            cases={prettyPrintStat(countryInfo.todayCases)}
+            onClick={e => setCasesType('cases')}
+          />
           {/* recovery */}
-          <InfoBox title="Recovered" total={countryInfo.recovered} cases={countryInfo.todayRecovered} />
+          <InfoBox isActive={casesType==='recovered'} title="Recovered" total={countryInfo.recovered} cases={prettyPrintStat(countryInfo.todayRecovered)} onClick={e => setCasesType('recovered')} />
           {/* deaths */}
-          <InfoBox title="Deaths" total={countryInfo.deaths} cases={countryInfo.todayDeaths} />
+          <InfoBox isActive={casesType==='deaths'} title="Deaths" total={countryInfo.deaths} cases={prettyPrintStat(countryInfo.todayDeaths)} onClick={e => setCasesType('deaths')} />
         </div>
 
 
@@ -102,21 +115,21 @@ function App() {
 
 
         {/*  Map*/}
-        <Map center={center} zoom={zoom} countries={mapCountries}/>
+        <Map center={center} zoom={zoom} countries={mapCountries} casesType={casesType} />
 
 
 
       </div>
       <Card className="app__right">
-     
+
         <CardContent>
           {/* Table */}
           <h3>Cases by country</h3>
           <Table countries={tableData}></Table>
-   
+
           {/* graph */}
-          <h3>Worldwide new cases</h3>
-          <LineGraph/>
+          <h3>Worldwide new {casesType}</h3>
+          <LineGraph casesType={casesType} />
         </CardContent>
       </Card>
     </div>
